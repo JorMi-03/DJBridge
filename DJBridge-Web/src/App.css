@@ -1,0 +1,16 @@
+body {
+    margin: 0;
+}
+#root {
+    max-width: 1280px;
+    /* 确保顶部外边距为 0，水平居中，底部外边距自动 */
+    margin: 0 auto;
+    padding: 2rem;
+    text-align: center;
+    /* 使用 flex 布局 */
+    display: flex;
+    /* 让子元素在交叉轴（垂直方向）上顶部对齐 */
+    align-items: flex-start;
+    /* 让子元素在主轴（水平方向）上居中 */
+    justify-content: center;
+}
