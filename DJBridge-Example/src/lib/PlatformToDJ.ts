@@ -16,5 +16,6 @@ export namespace PlatformToDJ {
     }
     export function setMessageText(text: string) {
         DJBridgeEvent.emit(DJBridgeEvent.EventType.setMessageText, text);
+        return "text:" + text;
     }
 }

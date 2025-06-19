@@ -6,7 +6,7 @@ import { DJBridge } from "./lib/DJBridge.ts";
 import { DJToPlatform } from "./lib/DJToPlatform.ts";
 import { PlatformToDJ } from "./lib/PlatformToDJ.ts";
 
-DJBridge.initReceptor(PlatformToDJ);
+DJBridge.setReceptorMgr(PlatformToDJ);
 DJToPlatform.loadFrameworkEnd();
 DJToPlatform.startLoad();
 createRoot(document.getElementById("root")!).render(

@@ -12,6 +12,86 @@ class WebViewMessageHandler: NSObject, WKScriptMessageHandler {
         delegate?.userContentController(userContentController, didReceive: message)
     }
 }
+
+class MessageTask {
+    let callbackId: Int
+    let action:String
+    private var resolve: ((Any?) -> Void)?
+    private var reject: ((Error) -> Void)?
+    private var timeoutTimer: Timer?
+    private static var callbackIdCounter = 1
+    // 初始化方法
+    init(_ action: String,_ completion: ((Result<Any?, Error>) -> Void)? = nil) {
+        self.callbackId = MessageTask.callbackIdCounter
+        MessageTask.callbackIdCounter += 1
+        self.action = action
+        // 超时处理
+        timeoutTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+            self?.error(with: NSError(domain: "DJBridge", code: -1, userInfo: [NSLocalizedDescriptionKey: "Message timeout"]))
+        }
+
+        self.resolve = { data in
+            completion?(.success(data))
+        }
+        self.reject = { error in
+            completion?(.failure(error))
+        }
+    }
+
+    // 接收消息方法
+    func recv(data: Any?) {
+        resolve?(data)
+        timeoutTimer?.invalidate()
+        timeoutTimer = nil
+    }
+
+    // 错误处理方法
+    func error(with error: Error) {
+        reject?(error)
+        timeoutTimer?.invalidate()
+        timeoutTimer = nil
+    }
+}
+
+
+// MessageTaskMgr 单例类
+class MessageTaskMgr {
+    static let shared = MessageTaskMgr()
+    private var tasks: [Int: MessageTask] = [:]
+
+    private init() {}
+
+    /// 向任务管理器中添加一个 MessageTask 实例
+    /// - Parameter task: 要添加的 MessageTask 实例
+    func add(task: MessageTask) {
+        tasks[task.callbackId] = task
+    }
+
+    /// 从任务管理器中移除指定回调 ID 对应的 MessageTask 实例
+    /// - Parameter callbackId: 要移除的 MessageTask 实例的回调 ID
+    func remove(callbackId: Int) {
+        tasks.removeValue(forKey: callbackId)
+    }
+
+    /// 根据回调 ID 获取对应的 MessageTask 实例
+    /// - Parameter callbackId: 要获取的 MessageTask 实例的回调 ID
+    /// - Returns: 对应的 MessageTask 实例，如果不存在则返回 nil
+    func get(callbackId: Int) -> MessageTask? {
+        return tasks[callbackId]
+    }
+
+    /// 获取当前任务管理器中所有 MessageTask 实例的数量
+    /// - Returns: 任务数量
+    func size() -> Int {
+        return tasks.count
+    }
+
+    /// 清空任务管理器中的所有 MessageTask 实例
+    func clear() {
+        tasks.removeAll()
+    }
+}
+
 class DJWebView: WKWebView, WKUIDelegate, WKScriptMessageHandler {
 
     // 注意：这里我们需要把handler设置为属性，防止被提前释放
@@ -61,14 +141,16 @@ class DJWebView: WKWebView, WKUIDelegate, WKScriptMessageHandler {
         actionList = actions
     }
 
-    func sendMessageToJS(_ action: String, _ data: Any?) {
+    func sendMessageToJS(_ action: String,_ completion: ((Result<Any?, Error>) -> Void)? = nil , _ data: Any?) {
         var messageDict: [String: Any] = [
             "action": action,
         ]
-        if data != nil {
+        if (data != nil) {
             messageDict["data"] = data
         }
-
+        let task = MessageTask(action,completion)
+        messageDict["callbackId"] = task.callbackId
+        MessageTaskMgr.shared.add(task: task)
         do {
             let jsonData = try JSONSerialization.data(withJSONObject: messageDict, options: [])
             if let jsonString = String(data: jsonData, encoding: .utf8) {
@@ -83,6 +165,7 @@ class DJWebView: WKWebView, WKUIDelegate, WKScriptMessageHandler {
             }
         } catch {
             print("JSON decode error: \(error.localizedDescription)")
+            MessageTaskMgr.shared.remove(callbackId: task.callbackId)
         }
     }
 
@@ -99,7 +182,19 @@ class DJWebView: WKWebView, WKUIDelegate, WKScriptMessageHandler {
                         let data = jsonDict["data"]
                         if action == "loadFrameworkEnd" {
                             if actionList != nil {
-                                sendMessageToJS("applyActions", actionList)
+                                sendMessageToJS("applyActions",nil, actionList)
+                            }
+                        } else if action == "callBackAction" {
+                            let recvData = data as! [String: Any]
+                            let callbackId:Int = recvData["callbackId"] as! Int;
+                            let success = recvData["success"] as! Bool
+                            let retData = recvData["data"]
+                            let task = MessageTaskMgr.shared.get(callbackId: callbackId)
+                            if (task == nil) {return}
+                            if (success) {
+                                task?.recv(data: retData)
+                            } else {
+                                task?.error(with: NSError())
                             }
                         } else {
                             onMessageReceived?(action, data)
@@ -110,5 +205,8 @@ class DJWebView: WKWebView, WKUIDelegate, WKScriptMessageHandler {
                 }
             }
         }
+    }
+    deinit {
+        MessageTaskMgr.shared.clear()
     }
 }

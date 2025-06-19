@@ -2,6 +2,7 @@ package com.doublejoy.bridge;
 
 import android.app.Activity;
 import android.os.Build;
+import android.util.Log;
 import android.view.View;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -50,7 +51,7 @@ public class DJWebViewMgr {
             return actionList;
         }
     }
-    public static void callJsBridge(String action,double data) {
+    public static void callJsBridge(String action,double data,DJMessageCallback callback) {
         JSONObject param = new JSONObject();
         try {
             param.put("action",action);
@@ -58,9 +59,9 @@ public class DJWebViewMgr {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        callJsBridgeToJson(param);
+        callJsBridgeToJson(param,callback);
     }
-    public static void callJsBridge(String action,int data) {
+    public static void callJsBridge(String action,int data,DJMessageCallback callback) {
         JSONObject param = new JSONObject();
         try {
             param.put("action",action);
@@ -68,9 +69,9 @@ public class DJWebViewMgr {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        callJsBridgeToJson(param);
+        callJsBridgeToJson(param,callback);
     }
-    public static void callJsBridge(String action,boolean data) {
+    public static void callJsBridge(String action,boolean data,DJMessageCallback callback) {
         JSONObject param = new JSONObject();
         try {
             param.put("action",action);
@@ -78,23 +79,23 @@ public class DJWebViewMgr {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        callJsBridgeToJson(param);
+        callJsBridgeToJson(param,callback);
     }
-    public static void callJsBridge(String action) {
+    public static void callJsBridge(String action,DJMessageCallback callback) {
         JSONObject param = new JSONObject();
         try {
             param.put("action",action);
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        callJsBridgeToJson(param);
+        callJsBridgeToJson(param,callback);
     }
     /**
      * 调用js方法
      * @param action 方法名 必须要注册到actionList中才可以使用
      * @param data 方法参数,json数据对象
      */
-    public static void callJsBridge(String action,Object data) {
+    public static void callJsBridge(String action,Object data,DJMessageCallback callback) {
         JSONObject param = new JSONObject();
         try {
             param.put("action",action);
@@ -102,19 +103,24 @@ public class DJWebViewMgr {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        callJsBridgeToJson(param);
+        callJsBridgeToJson(param,callback);
     }
-    private static void callJsBridgeToJson(JSONObject param) {
+    private static void callJsBridgeToJson(JSONObject param,DJMessageCallback callback) {
         Activity activity = mainActivityRef.get();
         if(activity == null) return;
         activity.runOnUiThread(() -> {
             WebView webView = webViewRef.get();
             if (webView == null) return;
+            int callbackId = -1;
             try {
                 // 检查 action 是否存在
                 if (param.isNull("action")) {
                     return;
                 }
+                DJMessageTask task = new DJMessageTask(param.getString("action"));
+                callbackId = task.getCallbackId();
+                param.put("callbackId",callbackId);
+                DJMessageTaskMgr.getInstance().add(task);
                 String jsonString = param.toString();
                 String jsCode = "javascript:DJAndroidBridgeToJs('" + jsonString.replace("'", "\\'") + "')";
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
@@ -126,8 +132,14 @@ public class DJWebViewMgr {
                     // Android 4.4 以下版本使用 loadUrl
                     webView.loadUrl(jsCode);
                 }
+                if (callback != null) {
+                    task.sendAsync(callback);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
+                if (callbackId != -1) {
+                    DJMessageTaskMgr.getInstance().remove((callbackId));
+                }
             }
         });
     }

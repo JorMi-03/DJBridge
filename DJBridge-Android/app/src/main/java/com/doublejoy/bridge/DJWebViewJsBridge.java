@@ -16,16 +16,32 @@ public class DJWebViewJsBridge {
 
     @JavascriptInterface
     public void onMessageReceived(String jsonStr) {
-        if (this._onMessageReceived == null) return;
         try {
             JSONObject jsonObject = new JSONObject(jsonStr);
 
             String action = (String) jsonObject.get("action");
             if (action.equals("loadFrameworkEnd")) {
                 this.loadFrameworkEnd();
+            } else if (action.equals("callBackAction")) {
+                JSONObject recvData = jsonObject.getJSONObject("data");
+                int callbackId = (int) recvData.get("callbackId");
+                boolean success = (boolean) recvData.get("success");
+                Object retData = null;
+                if (!recvData.isNull("data")) {
+                    retData =  recvData.get("data");
+                }
+                DJMessageTask task =  DJMessageTaskMgr.getInstance().get(callbackId);
+                DJMessageTaskMgr.getInstance().remove(callbackId);
+                if (success) {
+                    task.recv(retData);
+                } else {
+                    task.error(null);
+                }
             } else {
+                if (this._onMessageReceived == null) return;
                 this._onMessageReceived.onMessageReceived(jsonObject);
             }
+
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -38,6 +54,6 @@ public class DJWebViewJsBridge {
             e.printStackTrace();
             return;
         }
-        DJWebViewMgr.callJsBridge("applyActions",jsonArray);
+        DJWebViewMgr.callJsBridge("applyActions",jsonArray,null);
     }
 }

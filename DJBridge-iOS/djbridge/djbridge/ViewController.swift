@@ -56,7 +56,7 @@ class ViewController: UIViewController {
 
                 webview.frame = offScreenFrame
                 // 加载网页
-                if let webUrl = URL(string: "http://localhost/bridge-example/") {
+                if let webUrl = URL(string: "http://localhost:5173/") {
                     webview.loadUrl(webUrl)
                 }
             }
@@ -113,7 +113,15 @@ class ViewController: UIViewController {
 
     @objc func editingChanged(_ textField: UITextField) {
         guard let webview = djWebView else { return }
-        webview.sendMessageToJS("setMessageText", textField.text as Any)
+        webview.sendMessageToJS("setMessageText",{result in
+            switch result {
+            case .success(let data):
+                print("Received data: \(data)")
+            case .failure(let error):
+                print("Error: \(error.localizedDescription)")
+            }
+            
+        }, textField.text as Any)
     }
 
 }

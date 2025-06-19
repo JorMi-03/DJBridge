@@ -25,7 +25,7 @@ class App extends React.Component {
 
         document.body.appendChild(this.DJIframe);
 
-        this.DJIframe.src = "http://localhost/bridge-example/";
+        this.DJIframe.src = "http://localhost:5173/";
         DJBridge.initDJIframe(this.DJIframe);
     }
     public componentDidMount(): void {
@@ -79,13 +79,14 @@ class App extends React.Component {
     private changeInput(event: React.ChangeEvent<HTMLInputElement>) {
         this.setState({ inputValue: event.target.value });
     }
-    componentDidUpdate(
+    async componentDidUpdate(
         prevProps: Readonly<{}>,
         prevState: Readonly<typeof this.state>,
         snapshot?: any
-    ): void {
+    ): Promise<void> {
         if (prevState.inputValue !== this.state.inputValue) {
-            DJBridge.sendMessageToIframe("setMessageText", this.state.inputValue);
+            const ret = await DJBridge.sendMessageToIframe("setMessageText", this.state.inputValue);
+            console.log("setMessageText:", ret);
         }
     }
 

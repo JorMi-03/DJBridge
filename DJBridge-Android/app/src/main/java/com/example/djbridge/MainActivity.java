@@ -16,6 +16,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
+import com.doublejoy.bridge.DJMessageCallback;
+import com.doublejoy.bridge.DJMessageTaskMgr;
 import com.doublejoy.bridge.DJWebViewMgr;
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -78,7 +80,17 @@ public class MainActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {
                 String inputText = s.toString();
                 try {
-                    DJWebViewMgr.callJsBridge("setMessageText",inputText);
+                    DJWebViewMgr.callJsBridge("setMessageText", inputText, new DJMessageCallback() {
+                        @Override
+                        public void onSuccess(Object data) {
+                            System.out.println("setMessageText:"+data);
+                        }
+
+                        @Override
+                        public void onError(Object error) {
+                            System.out.println("setMessageText:" + error);
+                        }
+                    });
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -127,6 +139,7 @@ public class MainActivity extends AppCompatActivity {
         webview.setVisibility(View.VISIBLE);
     }
     private void closeDJWebView() {
+        DJMessageTaskMgr.getInstance().clear();
         ConstraintLayout gameLayout = this.findViewById(R.id.game_layout);
         WebView webview =  (WebView)gameLayout.getChildAt(0);
         if (webview == null) return;

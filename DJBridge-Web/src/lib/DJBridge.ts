@@ -30,6 +30,78 @@ export namespace DJBridge {
     };
 
     let djIframe: HTMLIFrameElement | null = null;
+    let callbackId: number = 1;
+    const callBackAction = "callBackAction";
+    // 接口等待时间过长
+    const MessageTaskTimeOut = 10 * 1000;
+    const MessageTaskMgr = new (class {
+        private tasks: Map<number, MessageTask> = new Map();
+        public add(task: MessageTask) {
+            this.tasks.set(task.callbackId, task);
+        }
+        public remove(callbackId: number) {
+            this.tasks.delete(callbackId);
+        }
+        public get(callbackId: number) {
+            return this.tasks.get(callbackId);
+        }
+        public clear() {
+            this.tasks.clear();
+        }
+    })();
+    class MessageTask {
+        public readonly callbackId: number;
+        public readonly action: string;
+        public readonly sendData: any;
+        private recvData: any;
+        private resolve: (value: any) => void = null!;
+        private reject: (reason?: any) => void = null!;
+        private timeoutId: number = 0;
+        constructor(action: string, data: any) {
+            this.callbackId = callbackId++;
+            this.action = action;
+            this.sendData = data;
+        }
+        public async send() {
+            if (!djIframe || !djIframe.contentWindow) {
+                console.warn("DJBridge: djIframe is null");
+                return;
+            }
+            djIframe.contentWindow.postMessage(
+                {
+                    action: this.action,
+                    data: this.sendData,
+                    callbackId: this.callbackId,
+                },
+                djIframe.src
+            );
+            // 等待消息返回
+            await new Promise((resolve, reject) => {
+                this.resolve = resolve;
+                this.reject = reject;
+                // 超时处理
+                this.timeoutId = setTimeout(() => {
+                    this.error(new Error("DJBridge: message timeout"));
+                }, MessageTaskTimeOut);
+            });
+            return this.recvData;
+        }
+        public recv(data: any) {
+            this.recvData = data;
+            if (this.resolve) {
+                this.resolve(this.recvData);
+            }
+            // 清除超时
+            clearTimeout(this.timeoutId);
+        }
+        public error(data: any) {
+            if (this.reject) {
+                this.reject(data);
+            }
+            // 清除超时
+            clearTimeout(this.timeoutId);
+        }
+    }
     /**
      * 初始化DJBridge
      * @param iframe iframe元素
@@ -47,7 +119,20 @@ export namespace DJBridge {
         ) {
             const data = event.data;
             if (typeof data == "object" && data != null && typeof data.action == "string") {
-                DJBridge.event.emit(data.action, data.data);
+                if (data.action == callBackAction) {
+                    const taskData = data.data || {};
+                    const task = MessageTaskMgr.get(taskData.callbackId);
+                    if (task) {
+                        if (taskData.success) {
+                            task.recv(taskData.data);
+                        } else {
+                            task.error(taskData.data);
+                        }
+                        MessageTaskMgr.remove(taskData.callbackId);
+                    }
+                } else {
+                    DJBridge.event.emit(data.action, data.data);
+                }
             }
         }
     }
@@ -62,19 +147,13 @@ export namespace DJBridge {
         if (djIframe) {
             djIframe = null;
         }
+        MessageTaskMgr.clear();
         window.removeEventListener("message", messageHandler);
     }
-    export function sendMessageToIframe(action: string, data: any) {
-        if (!djIframe) {
-            console.warn("DJBridge: djIframe is null");
-            return;
-        }
-        djIframe.contentWindow?.postMessage(
-            {
-                action: action,
-                data: data,
-            },
-            djIframe.src
-        );
+    export async function sendMessageToIframe(action: string, data: any) {
+        const task = new MessageTask(action, data);
+        MessageTaskMgr.add(task);
+        const ret = await task.send();
+        return ret;
     }
 }
