@@ -122,7 +122,7 @@ public class DJWebViewMgr {
                 param.put("callbackId",callbackId);
                 DJMessageTaskMgr.getInstance().add(task);
                 String jsonString = param.toString();
-                String jsCode = "javascript:DJAndroidBridgeToJs('" + jsonString.replace("'", "\\'") + "')";
+                String jsCode = "javascript:DJGameToPlatformJs('" + jsonString.replace("'", "\\'") + "')";
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                     // Android 4.4 及以上版本使用 evaluateJavascript
                     webView.evaluateJavascript(jsCode, value -> {

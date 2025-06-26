@@ -115,37 +115,20 @@ class djbridge {
                 this.runPlatformToDJ(action, data.callbackId, data.data);
             });
         } else {
-            if (isAndroid) {
-                // @ts-ignore
-                window["DJAndroidBridgeToJs"] = (jsonStr: string) => {
-                    let action: keyof typeof PlatformToDJ, data: any, callbackId: number;
-                    try {
-                        const json = JSON.parse(jsonStr);
-                        action = json.action;
-                        callbackId = json.callbackId;
-                        data = json.data;
-                    } catch (error) {
-                        console.log("DJAndroidBridgeToJs error:", jsonStr, error);
-                        return;
-                    }
-                    this.runPlatformToDJ(action, callbackId, data);
-                };
-            } else if (isiOS) {
-                // @ts-ignore
-                window["DJiOSBridgeToJs"] = (jsonStr: string) => {
-                    let action: keyof typeof PlatformToDJ, data: any, callbackId: number;
-                    try {
-                        const json = JSON.parse(jsonStr);
-                        action = json.action;
-                        callbackId = json.callbackId;
-                        data = json.data;
-                    } catch (error) {
-                        console.log("DJiOSBridgeToJs error:", jsonStr, error);
-                        return;
-                    }
-                    this.runPlatformToDJ(action, callbackId, data);
-                };
-            }
+            // @ts-ignore
+            window["DJGameToPlatformJs"] = (jsonStr: string) => {
+                let action: keyof typeof PlatformToDJ, data: any, callbackId: number;
+                try {
+                    const json = JSON.parse(jsonStr);
+                    action = json.action;
+                    callbackId = json.callbackId;
+                    data = json.data;
+                } catch (error) {
+                    console.log("DJGameToPlatformJs error:", jsonStr, error);
+                    return;
+                }
+                this.runPlatformToDJ(action, callbackId, data);
+            };
         }
     }
     /**

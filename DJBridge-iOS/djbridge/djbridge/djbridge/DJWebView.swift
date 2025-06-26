@@ -156,7 +156,7 @@ class DJWebView: WKWebView, WKUIDelegate, WKScriptMessageHandler {
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 let escapedJsonString = jsonString.replacingOccurrences(of: "'", with: "\\'")
                 evaluateJavaScript(
-                    "window.DJiOSBridgeToJs('\(escapedJsonString)')",
+                    "window.DJGameToPlatformJs('\(escapedJsonString)')",
                     completionHandler: { (result, error) in
                         if let error = error {
                             print("send message to js error: \(error.localizedDescription)")
